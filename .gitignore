@@ -1,4 +1,4 @@
 /build/
 CMakeFiles/
 CMakeCache.txt
-source/program.c
+src/program.c
