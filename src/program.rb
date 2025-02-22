@@ -12,31 +12,11 @@ def add_to_board(block, x, y)
   }
 end
 
-def can_drop?(block, x, y)
-  return can_move_to?(block, x, y+1)
-end
-
-def can_move_to?(block, x, y)
-  return false if x < 0 - block.x or x + block.x + block.width > 10
-  return false if y + block.y + block.height > HEIGHT
-  block_rows = block.rows.map { |r| r.split('') }
-
-  block_rows.each_with_index { |block_row, idx|
-    board_row = BOARD[y+block.y+idx].slice(x+block.x, block_row.length)
-    board_row.zip(block_row).each { |zipped_elem|
-      return false if zipped_elem[0] != ' ' && zipped_elem[1] != ' '
-    }
-  }
-
-  return true
-end
-
 def square(cell)
-  PsxMruby.print_msg("cell is: #{cell.inspect}")
   if cell == ' '
-    '  '
+    ' '
   else
-    '[]'
+    '['
   end
 end
 
@@ -115,24 +95,20 @@ class Block
 end
 
 def render_squares(win, row)
-  row.split('').each { |ch|
+  row.each { |ch|
     # TODO: colours
     win << square(ch)
   }
 end
 
 def render_next_block(win, block)
-  x = 15
+  x = 45
   y = 2
 
-  (0..3).each { |i|
-    win.setpos(y + i, x * 2)
-    win << "                "
-  }
-
   block.rows.each_with_index { |row, i|
-    win.setpos(y + i + block.y, (x + 1 + block.x) * 2)
-    render_squares(win, row)
+    # PsxMruby.print_msg("setting x, y to: #{y + i + block.y} #{x + 1 + block.x}")
+    win.setpos(y + i + block.y, (x + 1 + block.x))
+    render_squares(win, row.split(''))
   }
 end
 
@@ -147,7 +123,17 @@ class FakeCurses
   end
 
   def <<(str)
-    PsxMruby.print_msg(str)
+    # PsxMruby.print_msg("incoming str: #{str.inspect}")
+    chars = str.split('')
+    chars.each { |ch|
+      case
+      when ch == '#'
+        PsxMruby.draw_rect(110 + @x * 10, 20 + @y * 10, 10, 10, 255, 255, 255)
+      when ch == '['
+        PsxMruby.draw_rect(110 + @x * 10, 20 + @y * 10, 10, 10, 255, 0, 0)
+      end
+      @x += 1
+    }
   end
 end
 
@@ -165,16 +151,25 @@ class MainGame
     # TODO: randomness
     blocks = [:I, :J, :L, :O, :S, :Z,:T]
     #blocks[rand(blocks.size)]
-    @curr_random = (@curr_random + 1) % blocks.size
+    @curr_random = (@curr_random += 1) % blocks.size
     blocks[@curr_random]
   end
 
+  def draw_walls_and_bg(win)
+    PsxMruby.draw_rect(110, 20, 10, 200, 255, 255, 255)
+    PsxMruby.draw_rect(220, 20, 10, 200, 255, 255, 255)
+    PsxMruby.draw_rect(110, 10, 120, 10, 255, 255, 255)
+    PsxMruby.draw_rect(110, 220, 120, 10, 255, 255, 255)
+    PsxMruby.draw_rect(120, 20, 100, 200, 0, 0, 0)
+  end
+
   def main_loop
+    PsxMruby.init_context
     win = FakeCurses.new
     x = 4
     y = 0
     current_frame = 0
-    wait_frames = 20
+    wait_frames = 3
     block_count = 0
     blocks_per_level = 15
     start_frame = 0
@@ -183,24 +178,24 @@ class MainGame
     render_next_block(win, next_block)
     loop do
       cb_rows = curr_block.rows
-      (0..HEIGHT-1).each { |h|
-        win.setpos(h, 0)
-        win << "##"
-        render_squares(win, BOARD[h].join)
-        win.setpos(h, 11*2)
-        win << "##"
-        cb_rows.each_with_index { |cbr, i|
-          offset = (cbr.size - cbr.strip.size)
-          win.setpos(y+i + curr_block.y, (x + 1 + curr_block.x + offset) * 2)
-          render_squares(win, cbr.strip)
-        }
-        # TODO: flip here win.refresh
+      draw_walls_and_bg(win)
+
+      PsxMruby.flip_buffers
+      current_frame += 1
+
+      BOARD.each_with_index { |row, i|
+        win.setpos(i, 0)
+        render_squares(win, row)
       }
-      win.setpos(HEIGHT, 0)
-        win << ("##" * 12)
+
+      cb_rows.each_with_index { |cbr, i|
+        offset = (cbr.size - cbr.strip.size)
+        win.setpos(y+i + curr_block.y, (x + curr_block.x + offset))
+        render_squares(win, cbr.strip.split(''))
+      }
 
       win.setpos(HEIGHT+3, 4)
-        win << ("Score #{$score * 100}")
+      # win << ("Score #{$score * 100}")
 
       # TODO:input
       # str = STDIN.read_nonblock(1, exception: false)
@@ -216,8 +211,8 @@ class MainGame
         curr_block, x, y = rotate_r(curr_block, x, y)
       end
 
-
       elapsed = current_frame - start_frame
+      # PsxMruby.print_msg("------ elapsed: #{elapsed}")
       if elapsed > wait_frames
         if can_drop?(curr_block, x, y)
           y += 1
@@ -234,15 +229,15 @@ class MainGame
           render_next_block(win, next_block)
           unless can_move_to?(curr_block, x, y)
             win.setpos(8, 0)
-            win << "                        "
+            # win << "                        "
             win.setpos(9, 0)
-            win << "       GAME OVER        "
+            # win << "       GAME OVER        "
             win.setpos(10, 0)
-            win << "                        "
+            # win << "                        "
             win.setpos(11, 0)
-            win << "   PRESS ENTER TO EXIT  "
+            # win << "   PRESS ENTER TO EXIT  "
             win.setpos(12, 0)
-            win << "                        "
+            # win << "                        "
             loop {
               c = win.getch
               break if c == 10 || c == 13
@@ -253,6 +248,26 @@ class MainGame
         start_frame = current_frame
       end
     end
+  end
+
+  def can_drop?(block, x, y)
+    r = can_move_to?(block, x, y+1)
+    r
+  end
+
+  def can_move_to?(block, x, y)
+    return false if x < 0 - block.x or x + block.x + block.width > 10
+    return false if y + block.y + block.height > HEIGHT
+    block_rows = block.rows.map { |r| r.split('') }
+
+    block_rows.each_with_index { |block_row, idx|
+      board_row = BOARD[y+block.y+idx].slice(x+block.x, block_row.length)
+      board_row.zip(block_row).each { |zipped_elem|
+        return false if zipped_elem[0] != ' ' && zipped_elem[1] != ' '
+      }
+    }
+
+    return true
   end
 end
 

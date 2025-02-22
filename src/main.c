@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <psxgpu.h>
@@ -255,6 +256,114 @@ static mrb_value get_next_button_state(mrb_state *mrb, mrb_value self) {
   }
 }
 
+#define SCREEN_XRES 320
+#define SCREEN_YRES 240
+
+#define OT_LENGTH 16
+#define BUFFER_LENGTH 8192
+
+typedef struct {
+  DISPENV disp_env;
+  DRAWENV draw_env;
+
+  uint32_t ot[OT_LENGTH];
+  uint8_t  buffer[BUFFER_LENGTH];
+} RenderBuffer;
+
+typedef struct {
+  RenderBuffer buffers[2];
+  uint8_t      *next_packet;
+  int          active_buffer;
+} RenderContext;
+
+// TODO: Global bad
+RenderContext ctx;
+
+void setup_context(RenderContext *ctx, int w, int h, int r, int g, int b) {
+  // Place the two framebuffers vertically in VRAM.
+  SetDefDrawEnv(&(ctx->buffers[0].draw_env), 0, 0, w, h);
+  SetDefDispEnv(&(ctx->buffers[0].disp_env), 0, 0, w, h);
+  SetDefDrawEnv(&(ctx->buffers[1].draw_env), 0, h, w, h);
+  SetDefDispEnv(&(ctx->buffers[1].disp_env), 0, h, w, h);
+
+  // Set the default background color and enable auto-clearing.
+  setRGB0(&(ctx->buffers[0].draw_env), r, g, b);
+  setRGB0(&(ctx->buffers[1].draw_env), r, g, b);
+  ctx->buffers[0].draw_env.isbg = 1;
+  ctx->buffers[1].draw_env.isbg = 1;
+
+  // Initialize the first buffer and clear its OT so that it can be used for
+  // drawing.
+  ctx->active_buffer = 0;
+  ctx->next_packet   = ctx->buffers[0].buffer;
+  ClearOTagR(ctx->buffers[0].ot, OT_LENGTH);
+
+  // Turn on the video output.
+  SetDispMask(1);
+}
+
+static mrb_value init_context(mrb_state *mrb, mrb_value self) {
+  setup_context(&ctx, SCREEN_XRES, SCREEN_YRES, 63, 0, 127);
+
+  return mrb_nil_value();
+}
+
+void flip_buffers(RenderContext *ctx) {
+  // Wait for the GPU to finish drawing, then wait for vblank in order to
+  // prevent screen tearing.
+  DrawSync(0);
+  VSync(0);
+
+  RenderBuffer *draw_buffer = &(ctx->buffers[ctx->active_buffer]);
+  RenderBuffer *disp_buffer = &(ctx->buffers[ctx->active_buffer ^ 1]);
+
+  // Display the framebuffer the GPU has just finished drawing and start
+  // rendering the display list that was filled up in the main loop.
+  PutDispEnv(&(disp_buffer->disp_env));
+  DrawOTagEnv(&(draw_buffer->ot[OT_LENGTH - 1]), &(draw_buffer->draw_env));
+
+  // Switch over to the next buffer, clear it and reset the packet allocation
+  // pointer.
+  ctx->active_buffer ^= 1;
+  ctx->next_packet    = disp_buffer->buffer;
+  ClearOTagR(disp_buffer->ot, OT_LENGTH);
+}
+
+static mrb_value flip_buffers_(mrb_state *mrb, mrb_value self) {
+  flip_buffers(&ctx);
+
+  return mrb_nil_value();
+}
+
+void *new_primitive(RenderContext *ctx, int z, size_t size) {
+  // Place the primitive after all previously allocated primitives, then
+  // insert it into the OT and bump the allocation pointer.
+  RenderBuffer *buffer = &(ctx->buffers[ctx->active_buffer]);
+  uint8_t      *prim   = ctx->next_packet;
+
+  addPrim(&(buffer->ot[z]), prim);
+  ctx->next_packet += size;
+
+  // Make sure we haven't yet run out of space for future primitives.
+  assert(ctx->next_packet <= &(buffer->buffer[BUFFER_LENGTH]));
+
+  return (void *) prim;
+}
+
+static mrb_value draw_rect(mrb_state *mrb, mrb_value self) {
+  mrb_int x, y, w, h, r, g, b;
+  mrb_get_args(mrb, "iiiiiii", &x, &y, &w, &h, &r, &g, &b);
+
+  TILE *tile = (TILE *) new_primitive(&ctx, 1, sizeof(TILE));
+
+  setTile(tile);
+  setXY0 (tile, x, y);
+  setWH  (tile, w, h);
+  setRGB0(tile, r, g, b);
+
+  return mrb_nil_value();
+}
+
 int errno = 0;
 
 int main(int argc, char **argv) {
@@ -265,6 +374,9 @@ int main(int argc, char **argv) {
   if (!mrb) { return 1; }
   struct RClass *psx_mruby = mrb_define_module(mrb, "PsxMruby");
   mrb_define_module_function(mrb, psx_mruby, "print_msg", print_msg, MRB_ARGS_REQ(1));
+  mrb_define_module_function(mrb, psx_mruby, "init_context", init_context, MRB_ARGS_NONE());
+  mrb_define_module_function(mrb, psx_mruby, "flip_buffers", flip_buffers_, MRB_ARGS_NONE());
+  mrb_define_module_function(mrb, psx_mruby, "draw_rect", draw_rect, MRB_ARGS_REQ(2));
 
   printf("**************************************\n\n");
   mrb_load_irep(mrb, program);
