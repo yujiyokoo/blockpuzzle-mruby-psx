@@ -168,8 +168,9 @@ class MainGame
     win = FakeCurses.new
     x = 4
     y = 0
+    last_pad = 0xff
     current_frame = 0
-    wait_frames = 3
+    wait_frames = 2
     block_count = 0
     blocks_per_level = 15
     start_frame = 0
@@ -199,15 +200,16 @@ class MainGame
 
       # TODO:input
       # str = STDIN.read_nonblock(1, exception: false)
-      str = 'a'
-      case str
-      when 'h'
+      pad = PsxMruby.read_pad
+      PsxMruby.print_msg("pad: #{pad}")
+      case
+      when (~pad & ~0x7fff) == ~0x7fff # left 7f ff
         x = x-1 if can_move_to?(curr_block, x-1, y)
-      when 'l'
+      when (~pad & ~0xdfff) == ~0xdfff # right df ff
         x = x+1 if can_move_to?(curr_block, x+1, y)
-      when 'j'
+      when (~pad & ~0xbfff) == ~0xbfff # down bf ff
         y = y+1 if can_move_to?(curr_block, x, y+1)
-      when ' '
+      when (~pad & ~0xffbf) == ~0xffbf # button ff bf
         curr_block, x, y = rotate_r(curr_block, x, y)
       end
 
@@ -220,7 +222,7 @@ class MainGame
           # $log.puts("curr_block, x, y: #{curr_block}, #{x}, #{y}")
           add_to_board(curr_block, x, y)
           block_count += 100
-          wait_frames = [wait_frames - 3, 5].max if block_count % blocks_per_level == 0
+          wait_frames = [wait_frames - 3, 0].max if block_count % blocks_per_level == 0
           delete_full_rows
           y = 0
           x = 4

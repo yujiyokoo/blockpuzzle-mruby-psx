@@ -1,11 +1,14 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <psxgpu.h>
 #include <mruby.h>
 #include <mruby/irep.h>
 #include <mruby/string.h>
 #include <mruby/array.h>
+
+#include "spi.h"
 
 static uint32_t *xfb = NULL;
 // static GXRModeObj *rmode = NULL;
@@ -364,11 +367,44 @@ static mrb_value draw_rect(mrb_state *mrb, mrb_value self) {
   return mrb_nil_value();
 }
 
+static volatile uint8_t  pad_buff[2][34];
+static volatile size_t   pad_buff_len[2];
+
+void poll_cb(uint32_t port, const volatile uint8_t *buff, size_t rx_len) {
+  // Copy the response to a persistent buffer so it can be accessed from the
+  // main loop and displayed on screen.
+  pad_buff_len[port] = rx_len;
+  if (rx_len)
+    memcpy((void *) pad_buff[port], (void *) buff, rx_len);
+
+  PadResponse *pad = (PadResponse *) buff;
+}
+
+static mrb_value read_pad(mrb_state *mrb, mrb_value self) {
+  uint8_t port = 0;
+	for (uint32_t i = 0; i < pad_buff_len[port]; i++)
+  printf(
+			((i - 2) % 8) ? " %02x" : "\n %02x",
+			pad_buff[port][i]
+  );
+  printf("pad_buff_len[port]: %d\n", pad_buff_len[port]);
+  if (pad_buff_len[port] >= 2) {
+    // let's take the latest one for now...
+    return mrb_fixnum_value(
+      pad_buff[port][pad_buff_len[port]-1] |
+        (pad_buff[port][pad_buff_len[port]-2] << 8)
+    );
+  } else {
+    return mrb_fixnum_value(65535);
+  }
+}
+
 int errno = 0;
 
 int main(int argc, char **argv) {
   ResetGraph(0);
   FntLoad(960, 0);
+  SPI_Init(&poll_cb);
 
   mrb_state *mrb = mrb_open();
   if (!mrb) { return 1; }
@@ -377,6 +413,7 @@ int main(int argc, char **argv) {
   mrb_define_module_function(mrb, psx_mruby, "init_context", init_context, MRB_ARGS_NONE());
   mrb_define_module_function(mrb, psx_mruby, "flip_buffers", flip_buffers_, MRB_ARGS_NONE());
   mrb_define_module_function(mrb, psx_mruby, "draw_rect", draw_rect, MRB_ARGS_REQ(2));
+  mrb_define_module_function(mrb, psx_mruby, "read_pad", read_pad, MRB_ARGS_NONE());
 
   printf("**************************************\n\n");
   mrb_load_irep(mrb, program);

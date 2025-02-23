@@ -14,6 +14,7 @@ project(
 psn00bsdk_add_executable(blockpuzzle-psx GPREL
 	src/main.c
 	src/program.c
+	src/spi.c
 )
 
 psn00bsdk_add_cd_image(
