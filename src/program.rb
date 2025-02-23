@@ -130,7 +130,7 @@ class FakeCurses
       when ch == '#'
         PsxMruby.draw_rect(110 + @x * 10, 20 + @y * 10, 10, 10, 255, 255, 255)
       when ch == '['
-        PsxMruby.draw_rect(110 + @x * 10, 20 + @y * 10, 10, 10, 255, 0, 0)
+        PsxMruby.draw_rect(120 + @x * 10, 20 + @y * 10, 10, 10, 255, 0, 0)
       end
       @x += 1
     }
