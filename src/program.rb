@@ -50,7 +50,7 @@ class Block
     J: [["4\n444", 1, 1], ["44\n4\n4", 2, 0], ["444\n  4", 1, 1], [" 4\n 4\n44", 2, 0]],
     L: [["777\n7", 1, 1], ["77\n 7\n 7", 2, 0], ["  7\n777", 1, 1], ["7\n7\n77", 2, 0]],
     O: [["33\n33", 1, 1]],
-    T: [["555\n 5", 1, 1], ["5\n55\n5", 2, 0], [" 5 \n555", 1, 1], [" 5\n55\n 5", 2, 0]],
+    T: [["555\n 5", 1, 1], ["5\n55\n5", 2, 0], [" 5 \n555", 1, 0], [" 5\n55\n 5", 1, 0]],
     S: [[" 22\n22", 1, 1], ["2\n22\n 2", 2, 0]],
     Z: [["11\n 11", 1, 1], [" 1\n11\n1", 2, 0]]
   }
@@ -137,6 +137,12 @@ class FakeCurses
   end
 end
 
+class String
+  def lstrip
+    self.split('').drop_while { |c| c == ' ' }.join()
+  end
+end
+
 $score = 0
 
 class MainGame
@@ -149,7 +155,7 @@ class MainGame
 
   def random_block
     # TODO: randomness
-    blocks = [:I, :J, :L, :O, :S, :Z,:T]
+    blocks = [:I, :J, :L, :O, :S, :Z, :T]
     #blocks[rand(blocks.size)]
     @curr_random = (@curr_random += 1) % blocks.size
     blocks[@curr_random]
@@ -190,7 +196,8 @@ class MainGame
       }
 
       cb_rows.each_with_index { |cbr, i|
-        offset = (cbr.size - cbr.strip.size)
+        offset = (cbr.size - cbr.lstrip.size)
+        # PsxMruby.print_msg("x, curr_block.x, offest: #{x}, #{curr_block.x}, #{offset}")
         win.setpos(y+i + curr_block.y, (x + curr_block.x + offset))
         render_squares(win, cbr.strip.split(''))
       }
@@ -201,7 +208,6 @@ class MainGame
       # TODO:input
       # str = STDIN.read_nonblock(1, exception: false)
       pad = PsxMruby.read_pad
-      PsxMruby.print_msg("pad: #{pad}")
       case
       when (~pad & ~0x7fff) == ~0x7fff # left 7f ff
         x = x-1 if can_move_to?(curr_block, x-1, y)
