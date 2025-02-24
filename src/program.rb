@@ -1,23 +1,17 @@
 BOARD = Array.new(20) { Array.new(10, ' ') }
 def add_to_board(block, x, y)
+  PsxMruby.print_msg("add_to_board")
   rows = block.rows
   rows.each_with_index { |row, idx|
     row.split('').each_with_index { |cell, i|
       BOARD[y + idx + block.y][x + i + block.x] = if cell == ' '
         BOARD[y + idx + block.y][x + i + block.x]
       else
+        PsxMruby.print_msg("adding: #{cell}")
         cell
       end
     }
   }
-end
-
-def square(cell)
-  if cell == ' '
-    ' '
-  else
-    '['
-  end
 end
 
 def rotate_r(block, x, y)
@@ -96,8 +90,7 @@ end
 
 def render_squares(win, row)
   row.each { |ch|
-    # TODO: colours
-    win << square(ch)
+    win << ch
   }
 end
 
@@ -127,11 +120,30 @@ class FakeCurses
     chars = str.split('')
     chars.each { |ch|
       case
+      when ch == ' '
+        @x += 1
+        next
       when ch == '#'
-        PsxMruby.draw_rect(110 + @x * 10, 20 + @y * 10, 10, 10, 255, 255, 255)
-      when ch == '['
-        PsxMruby.draw_rect(120 + @x * 10, 20 + @y * 10, 10, 10, 255, 0, 0)
+        r, g, b, = 192, 192, 192
+      when ch == '1'
+        r, g, b, = 255, 0, 0
+      when ch == '2'
+        r, g, b, = 0, 128, 0
+      when ch == '3'
+        r, g, b, = 192, 192, 0
+      when ch == '4'
+        r, g, b, = 0, 0, 255
+      when ch == '5'
+        r, g, b, = 128, 0, 128
+      when ch == '6'
+        r, g, b, = 0, 192, 192
+      when ch == '7'
+        r, g, b, = 255, 165, 0
+      else
+        r, g, b, = 255, 255, 255
       end
+
+      PsxMruby.draw_rect(120 + @x * 10, 20 + @y * 10, 10, 10, r, g, b)
       @x += 1
     }
   end

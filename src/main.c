@@ -382,12 +382,6 @@ void poll_cb(uint32_t port, const volatile uint8_t *buff, size_t rx_len) {
 
 static mrb_value read_pad(mrb_state *mrb, mrb_value self) {
   uint8_t port = 0;
-	for (uint32_t i = 0; i < pad_buff_len[port]; i++)
-  printf(
-			((i - 2) % 8) ? " %02x" : "\n %02x",
-			pad_buff[port][i]
-  );
-  printf("pad_buff_len[port]: %d\n", pad_buff_len[port]);
   if (pad_buff_len[port] >= 2) {
     // let's take the latest one for now...
     return mrb_fixnum_value(
