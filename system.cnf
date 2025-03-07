@@ -1,4 +1,4 @@
-BOOT=cdrom:\blockpuzzle-psx.exe;1
+BOOT=cdrom:\BPZL.EXE;1
 TCB=4
 EVENT=10
 STACK=801FFFF0
