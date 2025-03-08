@@ -25,7 +25,7 @@ psn00bsdk_add_cd_image(
 )
 
 # my addition
-set(MRUBY_LIB_PATH "/media/psf/Home/Repos/parallels-ubuntu/PSX/mruby/build/playstation/lib")
+set(MRUBY_LIB_PATH "mruby/build/playstation/lib")
 find_library(MRUBYLIB
 	libmruby.a
 	PATHS "${MRUBY_LIB_PATH}"
@@ -42,7 +42,7 @@ if(MRUBYLIB AND MRUBYCORELIB)
 	message(STATUS "mruby libraries found: ${MRUBYLIB}")
 	target_link_libraries(blockpuzzle-psx PRIVATE "${MRUBYLIB}")
 	target_link_libraries(blockpuzzle-psx PRIVATE "${MRUBYCORELIB}")
-	target_include_directories(blockpuzzle-psx PRIVATE "/media/psf/Home/Repos/parallels-ubuntu/PSX/mruby/build/playstation/include")
+	target_include_directories(blockpuzzle-psx PRIVATE "mruby/build/playstation/include")
 
 	# no math.h so no float
 	target_compile_definitions(blockpuzzle-psx PRIVATE MRB_NO_FLOAT)

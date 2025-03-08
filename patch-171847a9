@@ -1,0 +1,31 @@
+diff --git a/include/mruby/value.h b/include/mruby/value.h
+index 6aa7c927e..bc8609df7 100644
+--- a/include/mruby/value.h
++++ b/include/mruby/value.h
+@@ -71,7 +71,10 @@ struct mrb_state;
+ # define PRIu32 "u"
+ # define PRIx32 "x"
+ #else
+-# include <inttypes.h>
++// # include <inttypes.h>
++# define PRId64 "ld"
++# define PRId32 "d"
++# define PRIu32 "u"
+ #endif
+ 
+ #if defined(MRB_INT64)
+diff --git a/src/error.c b/src/error.c
+index 6199cdff1..34d05405e 100644
+--- a/src/error.c
++++ b/src/error.c
+@@ -447,7 +447,9 @@ mrb_bug(mrb_state *mrb, const char *mesg)
+   fputs(mesg, stderr);
+   fputs("\n", stderr);
+ #endif
+-  exit(EXIT_FAILURE);
++  // exit(EXIT_FAILURE);
++  // TODO: this is wrong
++  abort();
+ }
+ 
+ mrb_value
