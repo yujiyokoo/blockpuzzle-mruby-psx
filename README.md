@@ -8,6 +8,9 @@ The patch is quite 'hacky' and not in a good state but it is meant to be work in
 
 You need PSn00bSDK installed on your machine, and a checkout of mruby repository.
 
+PSn00bSDK: https://github.com/Lameguy64/PSn00bSDK
+mruby: https://github.com/mruby/mruby
+
 ## Building
 
 First, you need to build mruby.
